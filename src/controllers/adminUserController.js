@@ -8,7 +8,7 @@ const { sequelize } = require("../models");
 // Create admin user
 const createAdmin = async (req, res) => {
   try {
-    const { full_name, email, password, phone, position, role, permissions } =
+    const { full_name, email, password, phone, position, role } =
       req.body;
 
     // Check if admin already exists
@@ -31,7 +31,6 @@ const createAdmin = async (req, res) => {
       phone,
       position,
       role: role || "super-admin",
-      permissions,
     });
 
     res.status(201).json({
@@ -205,7 +204,7 @@ const getAdminById = async (req, res) => {
 const updateProfile = async (req, res) => {
   try {
     const { id } = req.params;
-    const { full_name, phone, position, profile_image, permissions } = req.body;
+    const { full_name, phone, position, profile_image } = req.body;
 
     const admin = await AdminUser.findByPk(id);
     if (!admin) {
@@ -220,7 +219,6 @@ const updateProfile = async (req, res) => {
       phone: phone || admin.phone,
       position: position || admin.position,
       profile_image: profile_image || admin.profile_image,
-      permissions: permissions || admin.permissions,
     });
 
     res.status(200).json({
