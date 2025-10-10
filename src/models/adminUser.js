@@ -29,7 +29,7 @@ module.exports = (sequelize) => {
         type: DataTypes.STRING,
         allowNull: true,
       },
-      department: {
+      position: {
         type: DataTypes.STRING,
         allowNull: true,
       },
@@ -38,8 +38,8 @@ module.exports = (sequelize) => {
         allowNull: true,
       },
       role: {
-        type: DataTypes.ENUM("super_admin", "finance_admin", "support_admin"),
-        defaultValue: "super_admin",
+        type: DataTypes.ENUM("super-admin", "admin", "regular user"),
+        defaultValue: "super-admin",
       },
       profile_image: {
         type: DataTypes.STRING,

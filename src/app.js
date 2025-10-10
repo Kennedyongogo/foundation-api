@@ -7,13 +7,12 @@ const { initializeModels, setupAssociations } = require("./models");
 const { errorHandler } = require("./middleware/errorHandler");
 
 // Import all routes
-const publicUserRoutes = require("./routes/publicUserRoutes");
-const eventOrganizerRoutes = require("./routes/eventOrganizerRoutes");
 const adminUserRoutes = require("./routes/adminUserRoutes");
-const eventRoutes = require("./routes/eventRoutes");
-const ticketTypeRoutes = require("./routes/ticketTypeRoutes");
-const ticketPurchaseRoutes = require("./routes/ticketPurchaseRoutes");
-const paymentRoutes = require("./routes/paymentRoutes");
+const inquiryRoutes = require("./routes/inquiryRoutes");
+const projectRoutes = require("./routes/projectRoutes");
+const documentRoutes = require("./routes/documentRoutes");
+const auditTrailRoutes = require("./routes/auditTrailRoutes");
+const reportRoutes = require("./routes/reportRoutes");
 
 const app = express();
 
@@ -25,82 +24,86 @@ app.use(cors());
 // Debug logging middleware
 app.use((req, res, next) => {
   console.log(`🔍 [${new Date().toISOString()}] ${req.method} ${req.url}`);
-  console.log(`📋 Headers:`, req.headers);
   if (req.body && Object.keys(req.body).length > 0) {
     console.log(`📦 Body:`, req.body);
   }
   next();
 });
 
-// Static file serving for event ticketing system
-const eventsUploadPath = path.join(__dirname, "..", "uploads", "events");
-const organizersUploadPath = path.join(
-  __dirname,
-  "..",
-  "uploads",
-  "organizers"
-);
+// Static file serving
 const profilesUploadPath = path.join(__dirname, "..", "uploads", "profiles");
-const qrcodesUploadPath = path.join(__dirname, "..", "uploads", "qrcodes");
 const documentsUploadPath = path.join(__dirname, "..", "uploads", "documents");
+const projectsUploadPath = path.join(__dirname, "..", "uploads", "projects");
+const inquiriesUploadPath = path.join(__dirname, "..", "uploads", "inquiries");
 const miscUploadPath = path.join(__dirname, "..", "uploads", "misc");
 
-console.log("📁 Events upload path:", eventsUploadPath);
-console.log("📁 Organizers upload path:", organizersUploadPath);
-console.log("📁 Profiles upload path:", profilesUploadPath);
-console.log("📁 QR Codes upload path:", qrcodesUploadPath);
-console.log("📁 Documents upload path:", documentsUploadPath);
-console.log("📁 Misc upload path:", miscUploadPath);
-console.log("📁 Events directory exists:", fs.existsSync(eventsUploadPath));
-console.log(
-  "📁 Organizers directory exists:",
-  fs.existsSync(organizersUploadPath)
-);
-console.log("📁 Profiles directory exists:", fs.existsSync(profilesUploadPath));
-console.log("📁 QR Codes directory exists:", fs.existsSync(qrcodesUploadPath));
-console.log(
-  "📁 Documents directory exists:",
-  fs.existsSync(documentsUploadPath)
-);
-console.log("📁 Misc directory exists:", fs.existsSync(miscUploadPath));
+console.log("📁 Upload Paths:");
+console.log("  - Profiles:", profilesUploadPath, "- Exists:", fs.existsSync(profilesUploadPath));
+console.log("  - Documents:", documentsUploadPath, "- Exists:", fs.existsSync(documentsUploadPath));
+console.log("  - Projects:", projectsUploadPath, "- Exists:", fs.existsSync(projectsUploadPath));
+console.log("  - Inquiries:", inquiriesUploadPath, "- Exists:", fs.existsSync(inquiriesUploadPath));
+console.log("  - Misc:", miscUploadPath, "- Exists:", fs.existsSync(miscUploadPath));
 
-app.use("/uploads/events", express.static(eventsUploadPath));
-app.use("/uploads/organizers", express.static(organizersUploadPath));
+// Serve static files
 app.use("/uploads/profiles", express.static(profilesUploadPath));
-app.use("/uploads/qrcodes", express.static(qrcodesUploadPath));
 app.use("/uploads/documents", express.static(documentsUploadPath));
+app.use("/uploads/projects", express.static(projectsUploadPath));
+app.use("/uploads/inquiries", express.static(inquiriesUploadPath));
 app.use("/uploads/misc", express.static(miscUploadPath));
 
 // API routes
 console.log("🔗 Registering API routes...");
-app.use("/api/public-users", publicUserRoutes);
-console.log("✅ /api/public-users route registered");
-app.use("/api/organizers", eventOrganizerRoutes);
-console.log("✅ /api/organizers route registered");
-app.use("/api/admins", adminUserRoutes);
-console.log("✅ /api/admins route registered");
-app.use("/api/events", eventRoutes);
-console.log("✅ /api/events route registered");
-app.use("/api/ticket-types", ticketTypeRoutes);
-console.log("✅ /api/ticket-types route registered");
-app.use("/api/purchases", ticketPurchaseRoutes);
-console.log("✅ /api/purchases route registered");
-app.use("/api/payments", paymentRoutes);
-console.log("✅ /api/payments route registered");
+
+app.use("/api/admin-users", adminUserRoutes);
+console.log("✅ /api/admin-users route registered");
+
+app.use("/api/inquiries", inquiryRoutes);
+console.log("✅ /api/inquiries route registered");
+
+app.use("/api/projects", projectRoutes);
+console.log("✅ /api/projects route registered");
+
+app.use("/api/documents", documentRoutes);
+console.log("✅ /api/documents route registered");
+
+app.use("/api/audit-trail", auditTrailRoutes);
+console.log("✅ /api/audit-trail route registered");
+
+app.use("/api/reports", reportRoutes);
+console.log("✅ /api/reports route registered");
+
 console.log("✅ All API routes registered");
 
-// Error handling middleware
+// Health check endpoint
+app.get("/api/health", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "API is running",
+    timestamp: new Date().toISOString(),
+    version: "1.0.0",
+  });
+});
+
+// 404 handler for API routes
+app.use("/api/*", (req, res) => {
+  res.status(404).json({
+    success: false,
+    message: "API endpoint not found",
+    path: req.originalUrl,
+  });
+});
+
+// Error handling middleware (must be last)
 app.use(errorHandler);
 
 // Create upload directories if they don't exist
 const createUploadDirectories = () => {
   const uploadDirs = [
     path.join(__dirname, "..", "uploads"),
-    path.join(__dirname, "..", "uploads", "events"),
-    path.join(__dirname, "..", "uploads", "organizers"),
     path.join(__dirname, "..", "uploads", "profiles"),
-    path.join(__dirname, "..", "uploads", "qrcodes"),
     path.join(__dirname, "..", "uploads", "documents"),
+    path.join(__dirname, "..", "uploads", "projects"),
+    path.join(__dirname, "..", "uploads", "inquiries"),
     path.join(__dirname, "..", "uploads", "misc"),
   ];
 
@@ -115,11 +118,20 @@ const createUploadDirectories = () => {
 // Initialize models and associations
 const initializeApp = async () => {
   try {
+    console.log("🚀 Initializing application...");
+    
     // Create upload directories
     createUploadDirectories();
+    console.log("✅ Upload directories ready");
 
+    // Initialize database models
     await initializeModels();
+    console.log("✅ Database models initialized");
+    
+    // Setup model associations
     setupAssociations();
+    console.log("✅ Model associations configured");
+    
     console.log("✅ Application initialized successfully");
     return true;
   } catch (error) {

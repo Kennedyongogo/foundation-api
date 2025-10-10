@@ -6,14 +6,17 @@ const {
   getAllAdmins,
   getAdminById,
   updateProfile,
+  changePassword,
+  updateRole,
+  toggleActiveStatus,
   getDashboardStats,
   deleteAdmin,
-  getRevenueAnalytics,
-  getEventAnalytics,
-  getUserAnalytics,
-  getSystemAnalytics,
 } = require("../controllers/adminUserController");
-const { authenticateAdmin, requireSuperAdmin } = require("../middleware/auth");
+const { 
+  authenticateAdmin, 
+  requireSuperAdmin,
+  requireAdminOrHigher 
+} = require("../middleware/auth");
 const {
   uploadProfileImage,
   handleUploadError,
@@ -34,12 +37,9 @@ router.post(
 );
 
 router.get("/dashboard/stats", authenticateAdmin, getDashboardStats);
-router.get("/analytics/revenue", authenticateAdmin, getRevenueAnalytics);
-router.get("/analytics/events", authenticateAdmin, getEventAnalytics);
-router.get("/analytics/users", authenticateAdmin, getUserAnalytics);
-router.get("/analytics/system", authenticateAdmin, getSystemAnalytics);
 router.get("/", authenticateAdmin, getAllAdmins);
 router.get("/:id", authenticateAdmin, getAdminById);
+
 router.put(
   "/:id",
   authenticateAdmin,
@@ -47,6 +47,11 @@ router.put(
   handleUploadError,
   updateProfile
 );
+
+router.put("/:id/password", authenticateAdmin, changePassword);
+router.put("/:id/role", authenticateAdmin, requireSuperAdmin, updateRole);
+router.put("/:id/toggle-status", authenticateAdmin, requireSuperAdmin, toggleActiveStatus);
+
 router.delete("/:id", authenticateAdmin, requireSuperAdmin, deleteAdmin);
 
 // Error handling middleware

@@ -9,25 +9,20 @@ const storage = multer.diskStorage({
     let uploadPath;
 
     if (
-      file.fieldname === "event_image" ||
-      file.fieldname === "image" ||
-      file.fieldname === "image_url"
+      file.fieldname === "project_image" ||
+      file.fieldname === "project_images"
     ) {
-      uploadPath = path.join(__dirname, "..", "..", "uploads", "events");
-    } else if (
-      file.fieldname === "logo" ||
-      file.fieldname === "organizer_logo"
-    ) {
-      uploadPath = path.join(__dirname, "..", "..", "uploads", "organizers");
+      uploadPath = path.join(__dirname, "..", "..", "uploads", "projects");
     } else if (file.fieldname === "profile_image") {
       uploadPath = path.join(__dirname, "..", "..", "uploads", "profiles");
-    } else if (file.fieldname === "qr_code") {
-      uploadPath = path.join(__dirname, "..", "..", "uploads", "qrcodes");
     } else if (
+      file.fieldname === "document" ||
       file.fieldname === "documents" ||
-      file.fieldname === "verification_docs"
+      file.fieldname === "file"
     ) {
       uploadPath = path.join(__dirname, "..", "..", "uploads", "documents");
+    } else if (file.fieldname === "inquiry_attachment") {
+      uploadPath = path.join(__dirname, "..", "..", "uploads", "inquiries");
     } else {
       uploadPath = path.join(__dirname, "..", "..", "uploads", "misc");
     }
@@ -47,27 +42,34 @@ const storage = multer.diskStorage({
     // Generate unique filename with timestamp
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
     const extension = path.extname(file.originalname);
-    const filename = `${file.fieldname}-${uniqueSuffix}${extension}`;
+    const basename = path.basename(file.originalname, extension);
+    // Sanitize filename
+    const sanitizedBasename = basename.replace(/[^a-zA-Z0-9]/g, "_");
+    const filename = `${sanitizedBasename}-${uniqueSuffix}${extension}`;
     console.log("📄 Generated filename:", filename);
     cb(null, filename);
   },
 });
 
-// File filter to allow only specific file types
+// File filter to allow specific file types
 const fileFilter = (req, file, cb) => {
   const allowedTypes = {
+    // Images
     "image/jpeg": ".jpg",
     "image/jpg": ".jpg",
     "image/png": ".png",
     "image/gif": ".gif",
     "image/webp": ".webp",
+    // Documents
     "application/pdf": ".pdf",
     "application/msword": ".doc",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-      ".docx",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
     "application/vnd.ms-excel": ".xls",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
-      ".xlsx",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
+    "application/vnd.ms-powerpoint": ".ppt",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation": ".pptx",
+    "text/plain": ".txt",
+    "text/csv": ".csv",
   };
 
   if (allowedTypes[file.mimetype]) {
@@ -75,9 +77,7 @@ const fileFilter = (req, file, cb) => {
   } else {
     cb(
       new Error(
-        `Invalid file type. Allowed types: ${Object.values(allowedTypes).join(
-          ", "
-        )}`
+        `Invalid file type: ${file.mimetype}. Allowed types: ${Object.values(allowedTypes).join(", ")}`
       ),
       false
     );
@@ -93,34 +93,33 @@ const upload = multer({
   },
 });
 
-// Middleware for single event image upload (flexible field names)
-const uploadEventImage = upload.single("event_image");
-
-// Alternative middleware for single event image upload with "image" field name
-const uploadEventImageAlt = upload.single("image");
-
-// Middleware for single organizer logo upload
-const uploadOrganizerLogo = upload.single("logo");
-
 // Middleware for single profile picture upload
 const uploadProfileImage = upload.single("profile_image");
 
-// Middleware for QR code upload
-const uploadQRCode = upload.single("qr_code");
+// Middleware for single document upload
+const uploadDocument = upload.single("document");
 
-// Middleware for multiple documents upload (for verification, KRA, etc.)
+// Middleware for file upload (generic)
+const uploadFile = upload.single("file");
+
+// Middleware for multiple documents upload
 const uploadDocuments = upload.array("documents", 10); // Max 10 files
 
-// Middleware for verification documents (organizer registration)
-const uploadVerificationDocs = upload.fields([
-  { name: "kra_certificate", maxCount: 1 },
-  { name: "business_certificate", maxCount: 1 },
-  { name: "id_document", maxCount: 2 },
-  { name: "bank_statement", maxCount: 1 },
-]);
+// Middleware for project images
+const uploadProjectImage = upload.single("project_image");
 
-// Middleware for multiple event images (if needed)
-const uploadMultipleEventImages = upload.array("event_images", 5); // Max 5 images
+// Middleware for multiple project images
+const uploadProjectImages = upload.array("project_images", 10); // Max 10 images
+
+// Middleware for inquiry attachments
+const uploadInquiryAttachment = upload.single("inquiry_attachment");
+
+// Middleware for mixed uploads (multiple fields)
+const uploadMixed = upload.fields([
+  { name: "profile_image", maxCount: 1 },
+  { name: "document", maxCount: 1 },
+  { name: "documents", maxCount: 10 },
+]);
 
 // Error handling middleware for multer
 const handleUploadError = (error, req, res, next) => {
@@ -155,14 +154,57 @@ const handleUploadError = (error, req, res, next) => {
   next(error);
 };
 
+// Helper function to delete file
+const deleteFile = async (filePath) => {
+  try {
+    if (fs.existsSync(filePath)) {
+      await fs.promises.unlink(filePath);
+      console.log("🗑️ Deleted file:", filePath);
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error("Error deleting file:", error);
+    return false;
+  }
+};
+
+// Helper function to get file type from mimetype
+const getFileType = (mimetype) => {
+  if (mimetype.startsWith("image/")) return "image";
+  if (mimetype === "application/pdf") return "pdf";
+  if (
+    mimetype === "application/msword" ||
+    mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  ) {
+    return "word";
+  }
+  if (
+    mimetype === "application/vnd.ms-excel" ||
+    mimetype === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  ) {
+    return "excel";
+  }
+  if (
+    mimetype === "application/vnd.ms-powerpoint" ||
+    mimetype === "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+  ) {
+    return "powerpoint";
+  }
+  if (mimetype === "text/plain" || mimetype === "text/csv") return "text";
+  return "other";
+};
+
 module.exports = {
-  uploadEventImage,
-  uploadEventImageAlt,
-  uploadOrganizerLogo,
   uploadProfileImage,
-  uploadQRCode,
+  uploadDocument,
+  uploadFile,
   uploadDocuments,
-  uploadVerificationDocs,
-  uploadMultipleEventImages,
+  uploadProjectImage,
+  uploadProjectImages,
+  uploadInquiryAttachment,
+  uploadMixed,
   handleUploadError,
+  deleteFile,
+  getFileType,
 };

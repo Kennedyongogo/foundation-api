@@ -1,22 +1,18 @@
 const { sequelize } = require("../config/database");
 
 // Import all models
-const PublicUser = require("./publicUser")(sequelize);
-const EventOrganizer = require("./eventOrganizer")(sequelize);
 const AdminUser = require("./adminUser")(sequelize);
-const Event = require("./event")(sequelize);
-const TicketType = require("./ticketType")(sequelize);
-const TicketPurchase = require("./ticketPurchase")(sequelize);
-const Payment = require("./payment")(sequelize);
+const Inquiry = require("./inquiry")(sequelize);
+const Project = require("./project")(sequelize);
+const Document = require("./document")(sequelize);
+const AuditTrail = require("./auditTrail")(sequelize);
 
 const models = {
-  PublicUser,
-  EventOrganizer,
   AdminUser,
-  Event,
-  TicketType,
-  TicketPurchase,
-  Payment,
+  Inquiry,
+  Project,
+  Document,
+  AuditTrail,
 };
 
 // Initialize models in correct order (parent tables first)
@@ -25,16 +21,12 @@ const initializeModels = async () => {
     console.log("🔄 Creating/updating tables...");
 
     // Use alter: false to prevent schema conflicts in production
-    console.log("📋 Syncing parent tables...");
-    await PublicUser.sync({ force: false, alter: false });
-    await EventOrganizer.sync({ force: false, alter: false });
+    console.log("📋 Syncing tables...");
     await AdminUser.sync({ force: false, alter: false });
-    await Event.sync({ force: false, alter: false });
-
-    console.log("📋 Syncing child tables...");
-    await TicketType.sync({ force: false, alter: false });
-    await TicketPurchase.sync({ force: false, alter: false });
-    await Payment.sync({ force: false, alter: false });
+    await Inquiry.sync({ force: false, alter: false });
+    await Project.sync({ force: false, alter: false });
+    await Document.sync({ force: false, alter: false });
+    await AuditTrail.sync({ force: false, alter: false });
 
     console.log("✅ All models synced successfully");
   } catch (error) {
@@ -52,64 +44,54 @@ const initializeModels = async () => {
 
 const setupAssociations = () => {
   try {
-    // Event Organizer → Event (1:Many)
-    models.EventOrganizer.hasMany(models.Event, {
-      foreignKey: "organizer_id",
-      as: "events",
+    // AdminUser → Project (1:Many for created_by)
+    models.AdminUser.hasMany(models.Project, {
+      foreignKey: "created_by",
+      as: "createdProjects",
     });
-    models.Event.belongsTo(models.EventOrganizer, {
-      foreignKey: "organizer_id",
-      as: "organizer",
-    });
-
-    // Event → TicketType (1:Many)
-    models.Event.hasMany(models.TicketType, {
-      foreignKey: "event_id",
-      as: "ticketTypes",
-    });
-    models.TicketType.belongsTo(models.Event, {
-      foreignKey: "event_id",
-      as: "event",
+    models.Project.belongsTo(models.AdminUser, {
+      foreignKey: "created_by",
+      as: "creator",
     });
 
-    // PublicUser → TicketPurchase (1:Many)
-    models.PublicUser.hasMany(models.TicketPurchase, {
+    // AdminUser → Project (1:Many for assigned_by)
+    models.AdminUser.hasMany(models.Project, {
+      foreignKey: "assigned_by",
+      as: "assignedProjects",
+    });
+    models.Project.belongsTo(models.AdminUser, {
+      foreignKey: "assigned_by",
+      as: "assigner",
+    });
+
+    // AdminUser → Project (1:Many for assigned_to)
+    models.AdminUser.hasMany(models.Project, {
+      foreignKey: "assigned_to",
+      as: "assignedToProjects",
+    });
+    models.Project.belongsTo(models.AdminUser, {
+      foreignKey: "assigned_to",
+      as: "assignee",
+    });
+
+    // AdminUser → Document (1:Many for uploaded_by)
+    models.AdminUser.hasMany(models.Document, {
+      foreignKey: "uploaded_by",
+      as: "uploadedDocuments",
+    });
+    models.Document.belongsTo(models.AdminUser, {
+      foreignKey: "uploaded_by",
+      as: "uploader",
+    });
+
+    // AdminUser → AuditTrail (1:Many)
+    models.AdminUser.hasMany(models.AuditTrail, {
       foreignKey: "user_id",
-      as: "purchases",
+      as: "auditLogs",
     });
-    models.TicketPurchase.belongsTo(models.PublicUser, {
+    models.AuditTrail.belongsTo(models.AdminUser, {
       foreignKey: "user_id",
       as: "user",
-    });
-
-    // Event → TicketPurchase (1:Many)
-    models.Event.hasMany(models.TicketPurchase, {
-      foreignKey: "event_id",
-      as: "purchases",
-    });
-    models.TicketPurchase.belongsTo(models.Event, {
-      foreignKey: "event_id",
-      as: "event",
-    });
-
-    // TicketType → TicketPurchase (1:Many)
-    models.TicketType.hasMany(models.TicketPurchase, {
-      foreignKey: "ticket_type_id",
-      as: "purchases",
-    });
-    models.TicketPurchase.belongsTo(models.TicketType, {
-      foreignKey: "ticket_type_id",
-      as: "ticketType",
-    });
-
-    // TicketPurchase → Payment (1:1)
-    models.TicketPurchase.hasOne(models.Payment, {
-      foreignKey: "purchase_id",
-      as: "payment",
-    });
-    models.Payment.belongsTo(models.TicketPurchase, {
-      foreignKey: "purchase_id",
-      as: "purchase",
     });
 
     console.log("✅ All associations set up successfully");
