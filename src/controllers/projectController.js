@@ -1,5 +1,6 @@
 const { Project, AdminUser, sequelize } = require("../models");
 const { Op } = require("sequelize");
+const { convertToRelativePath } = require("../utils/filePath");
 
 // Create project
 const createProject = async (req, res) => {
@@ -41,7 +42,7 @@ const createProject = async (req, res) => {
       target_individual,
       status: status || "pending",
       created_by,
-      assigned_by: created_by,
+      assigned_by: assigned_to ? req.user?.id : null,
       assigned_to,
       start_date,
       end_date,
@@ -178,9 +179,45 @@ const getProjectById = async (req, res) => {
       });
     }
 
+    // Populate updated_by array with full user objects
+    const projectData = project.toJSON();
+    if (projectData.updated_by && Array.isArray(projectData.updated_by) && projectData.updated_by.length > 0) {
+      // Handle both old format (just IDs) and new format (objects with user_id and timestamp)
+      const userIds = projectData.updated_by.map(item => 
+        typeof item === 'string' ? item : item.user_id
+      );
+      
+      // Get unique user IDs
+      const uniqueUserIds = [...new Set(userIds)];
+      
+      const updatedByUsers = await AdminUser.findAll({
+        where: {
+          id: uniqueUserIds
+        },
+        attributes: ["id", "full_name", "email", "phone"]
+      });
+      
+      // Create a map for quick lookup
+      const userMap = {};
+      updatedByUsers.forEach(user => {
+        userMap[user.id] = user;
+      });
+      
+      // Map each update to include full user details and timestamp
+      projectData.updated_by = projectData.updated_by.map(item => {
+        const userId = typeof item === 'string' ? item : item.user_id;
+        const timestamp = typeof item === 'object' ? item.timestamp : null;
+        
+        return {
+          ...userMap[userId]?.toJSON(),
+          timestamp
+        };
+      }).filter(item => item.id); // Remove any entries where user wasn't found
+    }
+
     res.status(200).json({
       success: true,
-      data: project,
+      data: projectData,
     });
   } catch (error) {
     console.error("Error fetching project:", error);
@@ -196,6 +233,11 @@ const getProjectById = async (req, res) => {
 const updateProject = async (req, res) => {
   try {
     const { id } = req.params;
+    // Extract data from both req.body and req.fields (for multer.fields())
+    const bodyData = req.body || {};
+    const fieldsData = req.fields || {};
+    const allData = { ...bodyData, ...fieldsData };
+    
     const {
       name,
       description,
@@ -210,7 +252,9 @@ const updateProject = async (req, res) => {
       longitude,
       latitude,
       progress,
-    } = req.body;
+      progress_description,
+      existing_images,
+    } = allData;
 
     const project = await Project.findByPk(id);
 
@@ -221,27 +265,104 @@ const updateProject = async (req, res) => {
       });
     }
 
+    const updated_by_user_id = req.user?.id;
+
+
+    // Prepare update data - only include fields that are provided
+    const updateData = {};
+    
+    if (name !== undefined) updateData.name = name;
+    if (description !== undefined) updateData.description = description;
+    if (category !== undefined) updateData.category = category;
+    if (county !== undefined) updateData.county = county;
+    if (subcounty !== undefined) updateData.subcounty = subcounty;
+    if (target_individual !== undefined) updateData.target_individual = target_individual;
+    if (status !== undefined) updateData.status = status;
+    if (assigned_to !== undefined) updateData.assigned_to = assigned_to;
+    if (start_date !== undefined) updateData.start_date = start_date;
+    if (end_date !== undefined) updateData.end_date = end_date;
+    if (longitude !== undefined) updateData.longitude = longitude;
+    if (latitude !== undefined) updateData.latitude = latitude;
+    if (progress !== undefined) updateData.progress = progress;
+
+    // Set assigned_by when assignment changes
+    if (assigned_to !== undefined && assigned_to !== project.assigned_to) {
+      updateData.assigned_by = assigned_to ? req.user?.id : null;
+    }
+
+    // Handle progress description
+    if (progress_description) {
+      const descriptions = Array.isArray(project.progress_descriptions) 
+        ? [...project.progress_descriptions] 
+        : [];
+      descriptions.push({
+        description: progress_description,
+        timestamp: new Date(),
+        updated_by: updated_by_user_id,
+      });
+      updateData.progress_descriptions = descriptions;
+      // Mark as changed for Sequelize
+      project.changed('progress_descriptions', true);
+    }
+
+    // Handle update_images
+    let imageArray = [];
+    
+    // Add existing images
+    if (existing_images) {
+      if (Array.isArray(existing_images)) {
+        imageArray = existing_images.map(path => ({ path, timestamp: new Date() }));
+      } else {
+        imageArray = [{ path: existing_images, timestamp: new Date() }];
+      }
+    }
+
+    // Add new uploaded images (from any field)
+    if (req.files && req.files.length > 0) {
+      const newImages = req.files.map(file => ({
+        path: convertToRelativePath(file.path),
+        timestamp: new Date()
+      }));
+      imageArray = [...imageArray, ...newImages];
+    }
+
+    if (imageArray.length > 0) {
+      updateData.update_images = imageArray;
+    }
+
+    // Track who updated the project (with timestamp for each update)
+    if (updated_by_user_id) {
+      const updatedByArray = Array.isArray(project.updated_by) 
+        ? [...project.updated_by] 
+        : [];
+      
+      // Add user ID with timestamp for this update
+      updatedByArray.push({
+        user_id: updated_by_user_id,
+        timestamp: new Date()
+      });
+      
+      updateData.updated_by = updatedByArray;
+      // Mark as changed for Sequelize
+      project.changed('updated_by', true);
+    }
+
     // Update project
-    await project.update({
-      name,
-      description,
-      category,
-      county,
-      subcounty,
-      target_individual,
-      status,
-      assigned_to,
-      start_date,
-      end_date,
-      longitude,
-      latitude,
-      progress,
+    await project.update(updateData);
+
+    // Fetch updated project with associations
+    const updatedProject = await Project.findByPk(id, {
+      include: [
+        { association: 'creator', attributes: ['id', 'full_name', 'email', 'phone'] },
+        { association: 'assigner', attributes: ['id', 'full_name', 'email', 'phone'] },
+        { association: 'assignee', attributes: ['id', 'full_name', 'email', 'phone'] }
+      ]
     });
 
     res.status(200).json({
       success: true,
       message: "Project updated successfully",
-      data: project,
+      data: updatedProject,
     });
   } catch (error) {
     console.error("Error updating project:", error);

@@ -10,7 +10,8 @@ const storage = multer.diskStorage({
 
     if (
       file.fieldname === "project_image" ||
-      file.fieldname === "project_images"
+      file.fieldname === "project_images" ||
+      file.fieldname === "update_images"
     ) {
       uploadPath = path.join(__dirname, "..", "..", "uploads", "projects");
     } else if (file.fieldname === "profile_image") {
@@ -108,8 +109,8 @@ const uploadDocuments = upload.array("documents", 10); // Max 10 files
 // Middleware for project images
 const uploadProjectImage = upload.single("project_image");
 
-// Middleware for multiple project images
-const uploadProjectImages = upload.array("project_images", 10); // Max 10 images
+// Middleware for multiple project images with text fields
+const uploadProjectImages = upload.any();
 
 // Middleware for inquiry attachments
 const uploadInquiryAttachment = upload.single("inquiry_attachment");

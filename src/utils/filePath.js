@@ -9,8 +9,8 @@ const convertToRelativePath = (absolutePath) => {
   // Convert backslashes to forward slashes (Windows compatibility)
   const normalizedPath = absolutePath.replace(/\\/g, "/");
 
-  // Extract only the part after /uploads/ to make it web-accessible
-  const relativePath = normalizedPath.replace(/.*\/uploads\//, "/uploads/");
+  // Extract only the part after /uploads/ to make it web-accessible (without leading slash)
+  const relativePath = normalizedPath.replace(/.*\/uploads\//, "uploads/");
 
   return relativePath;
 };

@@ -55,7 +55,7 @@ router.get("/:id", getProjectById);
  * @desc    Update project
  * @access  Admin
  */
-router.put("/:id", updateProject);
+router.put("/:id", uploadProjectImages, handleUploadError, updateProject);
 
 /**
  * @route   PUT /api/projects/:id/status
