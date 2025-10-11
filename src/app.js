@@ -55,6 +55,13 @@ app.use("/uploads/misc", express.static(miscUploadPath));
 // API routes
 console.log("🔗 Registering API routes...");
 
+// Public routes (no authentication required)
+const { getPublicProjects, getPublicProjectById } = require("./controllers/projectController");
+app.get("/api/public-projects", getPublicProjects);
+console.log("✅ /api/public-projects route registered (public)");
+app.get("/api/public-projects/:id", getPublicProjectById);
+console.log("✅ /api/public-projects/:id route registered (public)");
+
 app.use("/api/admin-users", adminUserRoutes);
 console.log("✅ /api/admin-users route registered");
 

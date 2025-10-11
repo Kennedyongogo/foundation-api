@@ -579,6 +579,125 @@ const getProjectStats = async (req, res) => {
   }
 };
 
+// Get all projects for public users (no authentication required)
+const getPublicProjects = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      category,
+      status,
+      county,
+      search,
+      sortBy = "createdAt",
+      sortOrder = "DESC",
+    } = req.query;
+
+    const offset = (page - 1) * limit;
+
+    // Build filter conditions
+    const whereClause = {};
+
+    if (category) {
+      whereClause.category = category;
+    }
+
+    if (status) {
+      whereClause.status = status;
+    }
+
+    if (county) {
+      whereClause.county = county;
+    }
+
+    if (search) {
+      whereClause[Op.or] = [
+        { name: { [Op.like]: `%${search}%` } },
+        { description: { [Op.like]: `%${search}%` } },
+        { target_individual: { [Op.like]: `%${search}%` } },
+      ];
+    }
+
+    const { count, rows } = await Project.findAndCountAll({
+      where: whereClause,
+      include: [
+        {
+          model: AdminUser,
+          as: "creator",
+          attributes: ["id", "full_name"],
+        },
+        {
+          model: AdminUser,
+          as: "assignee",
+          attributes: ["id", "full_name"],
+        },
+      ],
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+      order: [[sortBy, sortOrder]],
+    });
+
+    res.status(200).json({
+      success: true,
+      data: rows,
+      pagination: {
+        total: count,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(count / limit),
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching public projects:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching projects",
+      error: error.message,
+    });
+  }
+};
+
+// Get single project by ID for public users (no authentication required)
+const getPublicProjectById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const project = await Project.findByPk(id, {
+      include: [
+        {
+          model: AdminUser,
+          as: "creator",
+          attributes: ["id", "full_name"],
+        },
+        {
+          model: AdminUser,
+          as: "assignee",
+          attributes: ["id", "full_name"],
+        },
+      ],
+    });
+
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: "Project not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: project,
+    });
+  } catch (error) {
+    console.error("Error fetching public project:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching project",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   createProject,
   getAllProjects,
@@ -587,5 +706,7 @@ module.exports = {
   updateProjectStatus,
   deleteProject,
   getProjectStats,
+  getPublicProjects,
+  getPublicProjectById,
 };
 
