@@ -49,10 +49,10 @@ const createAdmin = async (req, res) => {
       role: role || "super-admin",
       isActive: isActive !== undefined ? isActive : true,
       profile_image: profileImagePath,
-      whatsapp_link,
-      google_link,
-      twitter_link,
-      facebook_link,
+      whatsapp_link: whatsapp_link?.trim() || null,
+      google_link: google_link?.trim() || null,
+      twitter_link: twitter_link?.trim() || null,
+      facebook_link: facebook_link?.trim() || null,
     });
 
     // Log audit trail
@@ -293,10 +293,10 @@ const updateProfile = async (req, res) => {
       role: role || admin.role,
       isActive: isActive !== undefined ? isActive : admin.isActive,
       profile_image: profileImagePath,
-      whatsapp_link: whatsapp_link !== undefined ? whatsapp_link : admin.whatsapp_link,
-      google_link: google_link !== undefined ? google_link : admin.google_link,
-      twitter_link: twitter_link !== undefined ? twitter_link : admin.twitter_link,
-      facebook_link: facebook_link !== undefined ? facebook_link : admin.facebook_link,
+      whatsapp_link: whatsapp_link !== undefined ? (whatsapp_link?.trim() || null) : admin.whatsapp_link,
+      google_link: google_link !== undefined ? (google_link?.trim() || null) : admin.google_link,
+      twitter_link: twitter_link !== undefined ? (twitter_link?.trim() || null) : admin.twitter_link,
+      facebook_link: facebook_link !== undefined ? (facebook_link?.trim() || null) : admin.facebook_link,
     };
 
     await admin.update(updateData);
