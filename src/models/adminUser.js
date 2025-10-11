@@ -33,6 +33,10 @@ module.exports = (sequelize) => {
         type: DataTypes.STRING,
         allowNull: true,
       },
+      description: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+      },
       role: {
         type: DataTypes.ENUM("super-admin", "admin", "regular user"),
         defaultValue: "super-admin",
@@ -48,6 +52,34 @@ module.exports = (sequelize) => {
       lastLogin: {
         type: DataTypes.DATE,
         allowNull: true,
+      },
+      whatsapp_link: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        validate: {
+          isUrl: true,
+        },
+      },
+      google_link: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        validate: {
+          isUrl: true,
+        },
+      },
+      twitter_link: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        validate: {
+          isUrl: true,
+        },
+      },
+      facebook_link: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        validate: {
+          isUrl: true,
+        },
       },
     },
     {

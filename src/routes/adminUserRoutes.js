@@ -5,6 +5,8 @@ const {
   login,
   getAllAdmins,
   getAdminById,
+  getPublicAdmins,
+  getPublicAdminById,
   updateProfile,
   changePassword,
   updateRole,
@@ -25,6 +27,8 @@ const { errorHandler } = require("../middleware/errorHandler");
 
 // Public routes
 router.post("/login", login);
+router.get("/public", getPublicAdmins);
+router.get("/public/:id", getPublicAdminById);
 
 // Protected routes - Admin authentication required
 router.post(

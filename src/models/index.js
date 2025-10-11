@@ -22,7 +22,7 @@ const initializeModels = async () => {
 
     // Use alter: false to prevent schema conflicts in production
     console.log("📋 Syncing tables...");
-    await AdminUser.sync({ force: false, alter: false });
+    await AdminUser.sync({ force: false, alter: false  });
     await Inquiry.sync({ force: false, alter: false });
     await Project.sync({ force: false, alter: false });
     await Document.sync({ force: false, alter: false });

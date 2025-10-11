@@ -17,7 +17,7 @@ const {
 // Create admin user
 const createAdmin = async (req, res) => {
   try {
-    const { full_name, email, password, phone, position, role, isActive } =
+    const { full_name, email, password, phone, position, description, role, isActive, whatsapp_link, google_link, twitter_link, facebook_link } =
       req.body;
 
     // Check if admin already exists
@@ -45,9 +45,14 @@ const createAdmin = async (req, res) => {
       password: hashedPassword,
       phone,
       position,
+      description,
       role: role || "super-admin",
       isActive: isActive !== undefined ? isActive : true,
       profile_image: profileImagePath,
+      whatsapp_link,
+      google_link,
+      twitter_link,
+      facebook_link,
     });
 
     // Log audit trail
@@ -55,7 +60,7 @@ const createAdmin = async (req, res) => {
       req.user?.id || null,
       "admin_user",
       admin.id,
-      { full_name, email, role: admin.role, phone, position },
+      { full_name, email, role: admin.role, phone, position, description },
       req,
       `Created new admin user: ${full_name}`
     );
@@ -141,6 +146,7 @@ const login = async (req, res) => {
           phone: admin.phone,
           role: admin.role,
           position: admin.position,
+          description: admin.description,
           profile_image: admin.profile_image,
           isActive: admin.isActive,
           lastLogin: admin.lastLogin,
@@ -179,6 +185,7 @@ const getAllAdmins = async (req, res) => {
         { full_name: { [Op.like]: `%${search}%` } },
         { email: { [Op.like]: `%${search}%` } },
         { position: { [Op.like]: `%${search}%` } },
+        { description: { [Op.like]: `%${search}%` } },
       ];
     }
 
@@ -244,7 +251,7 @@ const getAdminById = async (req, res) => {
 const updateProfile = async (req, res) => {
   try {
     const { id } = req.params;
-    const { full_name, email, phone, position, role, isActive, profile_image_path } = req.body;
+    const { full_name, email, phone, position, description, role, isActive, profile_image_path, whatsapp_link, google_link, twitter_link, facebook_link } = req.body;
 
     const admin = await AdminUser.findByPk(id);
     if (!admin) {
@@ -260,6 +267,7 @@ const updateProfile = async (req, res) => {
       email: admin.email,
       phone: admin.phone,
       position: admin.position,
+      description: admin.description,
       role: admin.role,
       isActive: admin.isActive,
     };
@@ -281,9 +289,14 @@ const updateProfile = async (req, res) => {
       email: email || admin.email,
       phone: phone || admin.phone,
       position: position || admin.position,
+      description: description !== undefined ? description : admin.description,
       role: role || admin.role,
       isActive: isActive !== undefined ? isActive : admin.isActive,
       profile_image: profileImagePath,
+      whatsapp_link: whatsapp_link !== undefined ? whatsapp_link : admin.whatsapp_link,
+      google_link: google_link !== undefined ? google_link : admin.google_link,
+      twitter_link: twitter_link !== undefined ? twitter_link : admin.twitter_link,
+      facebook_link: facebook_link !== undefined ? facebook_link : admin.facebook_link,
     };
 
     await admin.update(updateData);
@@ -308,6 +321,7 @@ const updateProfile = async (req, res) => {
         email: admin.email,
         phone: admin.phone,
         position: admin.position,
+        description: admin.description,
         role: admin.role,
         isActive: admin.isActive,
         profile_image: admin.profile_image,
@@ -530,6 +544,89 @@ const deleteAdmin = async (req, res) => {
   }
 };
 
+// Get all admins (public - no auth required)
+const getPublicAdmins = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, role, search, sortBy = "createdAt", sortOrder = "DESC" } = req.query;
+
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const offset = (pageNum - 1) * limitNum;
+
+    // Build filter conditions - only show active admins
+    const whereClause = { isActive: true };
+
+    if (role) {
+      whereClause.role = role;
+    }
+
+    if (search) {
+      whereClause[Op.or] = [
+        { full_name: { [Op.like]: `%${search}%` } },
+        { position: { [Op.like]: `%${search}%` } },
+        { description: { [Op.like]: `%${search}%` } },
+      ];
+    }
+
+    const { count, rows } = await AdminUser.findAndCountAll({
+      where: whereClause,
+      attributes: ["id", "full_name", "position", "description", "role", "profile_image", "whatsapp_link", "google_link", "twitter_link", "facebook_link", "createdAt"],
+      limit: limitNum,
+      offset: offset,
+      order: [[sortBy, sortOrder]],
+    });
+
+    res.status(200).json({
+      success: true,
+      data: rows,
+      pagination: {
+        total: count,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(count / limitNum),
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching public admins:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching admins",
+      error: error.message,
+    });
+  }
+};
+
+// Get admin by ID (public - no auth required)
+const getPublicAdminById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const admin = await AdminUser.findOne({
+      where: { id, isActive: true },
+      attributes: ["id", "full_name", "position", "description", "role", "profile_image", "whatsapp_link", "google_link", "twitter_link", "facebook_link", "createdAt"],
+    });
+
+    if (!admin) {
+      return res.status(404).json({
+        success: false,
+        message: "Admin not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: admin,
+    });
+  } catch (error) {
+    console.error("Error fetching public admin:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching admin",
+      error: error.message,
+    });
+  }
+};
+
 // Get platform dashboard stats
 const getDashboardStats = async (req, res) => {
   try {
@@ -612,6 +709,8 @@ module.exports = {
   login,
   getAllAdmins,
   getAdminById,
+  getPublicAdmins,
+  getPublicAdminById,
   updateProfile,
   changePassword,
   updateRole,
