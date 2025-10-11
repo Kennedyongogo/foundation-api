@@ -13,6 +13,7 @@ const projectRoutes = require("./routes/projectRoutes");
 const documentRoutes = require("./routes/documentRoutes");
 const auditTrailRoutes = require("./routes/auditTrailRoutes");
 const reportRoutes = require("./routes/reportRoutes");
+const analyticsRoutes = require("./routes/analyticsRoutes");
 
 const app = express();
 
@@ -71,6 +72,9 @@ console.log("✅ /api/audit-trail route registered");
 
 app.use("/api/reports", reportRoutes);
 console.log("✅ /api/reports route registered");
+
+app.use("/api/analytics", analyticsRoutes);
+console.log("✅ /api/analytics route registered");
 
 console.log("✅ All API routes registered");
 
