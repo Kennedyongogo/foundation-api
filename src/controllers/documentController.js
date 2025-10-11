@@ -2,6 +2,13 @@ const { Document, AdminUser, sequelize } = require("../models");
 const { Op } = require("sequelize");
 const path = require("path");
 const fs = require("fs").promises;
+const { convertToRelativePath } = require("../utils/filePath");
+const {
+  logCreate,
+  logUpdate,
+  logDelete,
+  logDownload,
+} = require("../utils/auditLogger");
 
 // Create/Upload document
 const createDocument = async (req, res) => {
@@ -25,7 +32,7 @@ const createDocument = async (req, res) => {
     }
 
     const uploaded_by = req.user?.id;
-    const file_path = req.file.path;
+    const file_path = convertToRelativePath(req.file.path);
 
     // Create document record
     const document = await Document.create({
@@ -35,6 +42,16 @@ const createDocument = async (req, res) => {
       file_type,
       uploaded_by,
     });
+
+    // Log audit trail
+    await logCreate(
+      uploaded_by,
+      "document",
+      document.id,
+      { title, file_type, file_path },
+      req,
+      `Uploaded new document: ${title}`
+    );
 
     res.status(201).json({
       success: true,
@@ -164,12 +181,32 @@ const updateDocument = async (req, res) => {
       });
     }
 
-    // Update document
-    await document.update({
+    // Store old values for audit
+    const oldValues = {
+      title: document.title,
+      description: document.description,
+      file_type: document.file_type,
+    };
+
+    const newValues = {
       title: title || document.title,
       description: description !== undefined ? description : document.description,
       file_type: file_type || document.file_type,
-    });
+    };
+
+    // Update document
+    await document.update(newValues);
+
+    // Log audit trail
+    await logUpdate(
+      req.user?.id,
+      "document",
+      id,
+      oldValues,
+      newValues,
+      req,
+      `Updated document: ${document.title}`
+    );
 
     res.status(200).json({
       success: true,
@@ -200,9 +237,17 @@ const deleteDocument = async (req, res) => {
       });
     }
 
+    // Store document data for audit log
+    const documentData = {
+      title: document.title,
+      file_type: document.file_type,
+      file_path: document.file_path,
+    };
+
     // Delete file from storage
     try {
-      await fs.unlink(document.file_path);
+      const absolutePath = path.join(__dirname, "..", "..", document.file_path);
+      await fs.unlink(absolutePath);
     } catch (fileError) {
       console.error("Error deleting file:", fileError);
       // Continue even if file deletion fails
@@ -210,6 +255,16 @@ const deleteDocument = async (req, res) => {
 
     // Delete database record
     await document.destroy();
+
+    // Log audit trail
+    await logDelete(
+      req.user?.id,
+      "document",
+      id,
+      documentData,
+      req,
+      `Deleted document: ${documentData.title}`
+    );
 
     res.status(200).json({
       success: true,
@@ -239,9 +294,12 @@ const downloadDocument = async (req, res) => {
       });
     }
 
+    // Convert relative path to absolute path
+    const absolutePath = path.join(__dirname, "..", "..", document.file_path);
+
     // Check if file exists
     try {
-      await fs.access(document.file_path);
+      await fs.access(absolutePath);
     } catch (error) {
       return res.status(404).json({
         success: false,
@@ -249,8 +307,18 @@ const downloadDocument = async (req, res) => {
       });
     }
 
+    // Log audit trail
+    await logDownload(
+      req.user?.id,
+      "document",
+      id,
+      { filename: document.title, file_type: document.file_type },
+      req,
+      `Downloaded document: ${document.title}`
+    );
+
     // Send file
-    res.download(document.file_path, path.basename(document.file_path));
+    res.download(absolutePath, path.basename(absolutePath));
   } catch (error) {
     console.error("Error downloading document:", error);
     res.status(500).json({

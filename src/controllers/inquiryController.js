@@ -1,5 +1,11 @@
 const { Inquiry, sequelize } = require("../models");
 const { Op } = require("sequelize");
+const {
+  logCreate,
+  logUpdate,
+  logDelete,
+  logStatusChange,
+} = require("../utils/auditLogger");
 
 // Create inquiry
 const createInquiry = async (req, res) => {
@@ -22,6 +28,16 @@ const createInquiry = async (req, res) => {
       message,
       category,
     });
+
+    // Log audit trail
+    await logCreate(
+      null, // Public inquiry, no user ID
+      "inquiry",
+      inquiry.id,
+      { full_name, email, category },
+      req,
+      `New inquiry submitted by ${full_name} (${email})`
+    );
 
     res.status(201).json({
       success: true,
@@ -127,6 +143,78 @@ const getInquiryById = async (req, res) => {
   }
 };
 
+// Update inquiry
+const updateInquiry = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { full_name, email, phone, message, category, status } = req.body;
+
+    const inquiry = await Inquiry.findByPk(id);
+
+    if (!inquiry) {
+      return res.status(404).json({
+        success: false,
+        message: "Inquiry not found",
+      });
+    }
+
+    const updated_by_user_id = req.user?.id;
+    const oldData = {
+      full_name: inquiry.full_name,
+      email: inquiry.email,
+      phone: inquiry.phone,
+      message: inquiry.message,
+      category: inquiry.category,
+      status: inquiry.status,
+    };
+
+    // Prepare update data
+    const updateData = {};
+    if (full_name) updateData.full_name = full_name;
+    if (email) updateData.email = email;
+    if (phone !== undefined) updateData.phone = phone;
+    if (message) updateData.message = message;
+    if (category) updateData.category = category;
+    if (status) updateData.status = status;
+
+    // Add to updated_by array
+    const updatedByList = inquiry.updated_by || [];
+    updatedByList.push({
+      user_id: updated_by_user_id,
+      timestamp: new Date(),
+      action: "Updated inquiry details",
+    });
+    updateData.updated_by = updatedByList;
+
+    // Update inquiry
+    await inquiry.update(updateData);
+
+    // Log audit trail
+    await logUpdate(
+      updated_by_user_id,
+      "inquiry",
+      id,
+      oldData,
+      updateData,
+      req,
+      `Updated inquiry from: ${inquiry.full_name}`
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Inquiry updated successfully",
+      data: inquiry,
+    });
+  } catch (error) {
+    console.error("Error updating inquiry:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error updating inquiry",
+      error: error.message,
+    });
+  }
+};
+
 // Update inquiry status
 const updateInquiryStatus = async (req, res) => {
   try {
@@ -143,6 +231,7 @@ const updateInquiryStatus = async (req, res) => {
     }
 
     const updated_by_user_id = req.user?.id;
+    const oldStatus = inquiry.status;
 
     // Prepare update data
     const updateData = { status };
@@ -169,6 +258,17 @@ const updateInquiryStatus = async (req, res) => {
 
     // Update inquiry
     await inquiry.update(updateData);
+
+    // Log audit trail
+    await logStatusChange(
+      updated_by_user_id,
+      "inquiry",
+      id,
+      oldStatus,
+      status,
+      req,
+      `Changed inquiry status from ${oldStatus} to ${status} for: ${inquiry.full_name}`
+    );
 
     res.status(200).json({
       success: true,
@@ -231,6 +331,17 @@ const addDescriptionUpdate = async (req, res) => {
       updated_by: updatedByList,
     });
 
+    // Log audit trail
+    await logUpdate(
+      updated_by_user_id,
+      "inquiry",
+      id,
+      {},
+      { description_update: description },
+      req,
+      `Added description update to inquiry from: ${inquiry.full_name}`
+    );
+
     res.status(200).json({
       success: true,
       message: "Description update added successfully",
@@ -260,7 +371,25 @@ const deleteInquiry = async (req, res) => {
       });
     }
 
+    // Store inquiry data for audit log
+    const inquiryData = {
+      full_name: inquiry.full_name,
+      email: inquiry.email,
+      category: inquiry.category,
+      status: inquiry.status,
+    };
+
     await inquiry.destroy();
+
+    // Log audit trail
+    await logDelete(
+      req.user?.id,
+      "inquiry",
+      id,
+      inquiryData,
+      req,
+      `Deleted inquiry from: ${inquiryData.full_name} (${inquiryData.email})`
+    );
 
     res.status(200).json({
       success: true,
@@ -319,6 +448,7 @@ module.exports = {
   createInquiry,
   getAllInquiries,
   getInquiryById,
+  updateInquiry,
   updateInquiryStatus,
   addDescriptionUpdate,
   deleteInquiry,

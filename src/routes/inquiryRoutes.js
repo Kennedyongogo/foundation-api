@@ -4,6 +4,7 @@ const {
   createInquiry,
   getAllInquiries,
   getInquiryById,
+  updateInquiry,
   updateInquiryStatus,
   addDescriptionUpdate,
   deleteInquiry,
@@ -39,6 +40,13 @@ router.get("/stats", authenticateAdmin, getInquiryStats);
  * @access  Admin
  */
 router.get("/:id", authenticateAdmin, getInquiryById);
+
+/**
+ * @route   PUT /api/inquiries/:id
+ * @desc    Update inquiry
+ * @access  Admin
+ */
+router.put("/:id", authenticateAdmin, updateInquiry);
 
 /**
  * @route   PUT /api/inquiries/:id/status

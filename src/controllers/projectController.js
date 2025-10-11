@@ -1,6 +1,12 @@
 const { Project, AdminUser, sequelize } = require("../models");
 const { Op } = require("sequelize");
 const { convertToRelativePath } = require("../utils/filePath");
+const {
+  logCreate,
+  logUpdate,
+  logDelete,
+  logStatusChange,
+} = require("../utils/auditLogger");
 
 // Create project
 const createProject = async (req, res) => {
@@ -53,6 +59,16 @@ const createProject = async (req, res) => {
       progress_descriptions: [],
       updated_by: [],
     });
+
+    // Log audit trail
+    await logCreate(
+      created_by,
+      "project",
+      project.id,
+      { name, category, county, status: project.status },
+      req,
+      `Created new project: ${name}`
+    );
 
     res.status(201).json({
       success: true,
@@ -267,6 +283,14 @@ const updateProject = async (req, res) => {
 
     const updated_by_user_id = req.user?.id;
 
+    // Store old values for audit
+    const oldValues = {
+      name: project.name,
+      status: project.status,
+      category: project.category,
+      progress: project.progress,
+      assigned_to: project.assigned_to,
+    };
 
     // Prepare update data - only include fields that are provided
     const updateData = {};
@@ -350,6 +374,17 @@ const updateProject = async (req, res) => {
     // Update project
     await project.update(updateData);
 
+    // Log audit trail
+    await logUpdate(
+      updated_by_user_id,
+      "project",
+      id,
+      oldValues,
+      updateData,
+      req,
+      `Updated project: ${project.name}`
+    );
+
     // Fetch updated project with associations
     const updatedProject = await Project.findByPk(id, {
       include: [
@@ -390,6 +425,7 @@ const updateProjectStatus = async (req, res) => {
     }
 
     const updated_by_user_id = req.user?.id;
+    const oldStatus = project.status;
 
     // Prepare update data
     const updateData = { status };
@@ -432,6 +468,17 @@ const updateProjectStatus = async (req, res) => {
     // Update project
     await project.update(updateData);
 
+    // Log audit trail
+    await logStatusChange(
+      updated_by_user_id,
+      "project",
+      id,
+      oldStatus,
+      status,
+      req,
+      `Changed project status from ${oldStatus} to ${status} for: ${project.name}`
+    );
+
     res.status(200).json({
       success: true,
       message: "Project status updated successfully",
@@ -461,7 +508,24 @@ const deleteProject = async (req, res) => {
       });
     }
 
+    // Store project data for audit log
+    const projectData = {
+      name: project.name,
+      category: project.category,
+      status: project.status,
+    };
+
     await project.destroy();
+
+    // Log audit trail
+    await logDelete(
+      req.user?.id,
+      "project",
+      id,
+      projectData,
+      req,
+      `Deleted project: ${projectData.name}`
+    );
 
     res.status(200).json({
       success: true,

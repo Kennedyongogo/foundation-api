@@ -4,11 +4,20 @@ const jwt = require("jsonwebtoken");
 const config = require("../config/config");
 const { Op } = require("sequelize");
 const { sequelize } = require("../models");
+const { convertToRelativePath } = require("../utils/filePath");
+const {
+  logCreate,
+  logUpdate,
+  logDelete,
+  logLogin,
+  logStatusChange,
+  logAudit,
+} = require("../utils/auditLogger");
 
 // Create admin user
 const createAdmin = async (req, res) => {
   try {
-    const { full_name, email, password, phone, position, role } =
+    const { full_name, email, password, phone, position, role, isActive } =
       req.body;
 
     // Check if admin already exists
@@ -23,6 +32,12 @@ const createAdmin = async (req, res) => {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // Handle profile image
+    let profileImagePath = null;
+    if (req.file) {
+      profileImagePath = convertToRelativePath(req.file.path);
+    }
+
     // Create admin
     const admin = await AdminUser.create({
       full_name,
@@ -31,7 +46,19 @@ const createAdmin = async (req, res) => {
       phone,
       position,
       role: role || "super-admin",
+      isActive: isActive !== undefined ? isActive : true,
+      profile_image: profileImagePath,
     });
+
+    // Log audit trail
+    await logCreate(
+      req.user?.id || null,
+      "admin_user",
+      admin.id,
+      { full_name, email, role: admin.role, phone, position },
+      req,
+      `Created new admin user: ${full_name}`
+    );
 
     res.status(201).json({
       success: true,
@@ -61,6 +88,8 @@ const login = async (req, res) => {
     // Find admin
     const admin = await AdminUser.findOne({ where: { email } });
     if (!admin) {
+      // Log failed login attempt
+      await logLogin(null, req, false, "Invalid email");
       return res.status(401).json({
         success: false,
         message: "Invalid email or password",
@@ -69,6 +98,8 @@ const login = async (req, res) => {
 
     // Check if active
     if (!admin.isActive) {
+      // Log failed login attempt
+      await logLogin(admin.id, req, false, "Account is inactive");
       return res.status(403).json({
         success: false,
         message: "Account is inactive",
@@ -78,6 +109,8 @@ const login = async (req, res) => {
     // Verify password
     const isPasswordValid = await bcrypt.compare(password, admin.password);
     if (!isPasswordValid) {
+      // Log failed login attempt
+      await logLogin(admin.id, req, false, "Invalid password");
       return res.status(401).json({
         success: false,
         message: "Invalid email or password",
@@ -94,6 +127,9 @@ const login = async (req, res) => {
       { expiresIn: "7d" }
     );
 
+    // Log successful login
+    await logLogin(admin.id, req, true);
+
     res.status(200).json({
       success: true,
       message: "Login successful",
@@ -102,8 +138,12 @@ const login = async (req, res) => {
           id: admin.id,
           full_name: admin.full_name,
           email: admin.email,
+          phone: admin.phone,
           role: admin.role,
           position: admin.position,
+          profile_image: admin.profile_image,
+          isActive: admin.isActive,
+          lastLogin: admin.lastLogin,
         },
         token,
       },
@@ -204,7 +244,7 @@ const getAdminById = async (req, res) => {
 const updateProfile = async (req, res) => {
   try {
     const { id } = req.params;
-    const { full_name, phone, position, profile_image } = req.body;
+    const { full_name, email, phone, position, role, isActive, profile_image_path } = req.body;
 
     const admin = await AdminUser.findByPk(id);
     if (!admin) {
@@ -214,12 +254,50 @@ const updateProfile = async (req, res) => {
       });
     }
 
-    await admin.update({
+    // Store old values for audit
+    const oldValues = {
+      full_name: admin.full_name,
+      email: admin.email,
+      phone: admin.phone,
+      position: admin.position,
+      role: admin.role,
+      isActive: admin.isActive,
+    };
+
+    // Handle profile image
+    let profileImagePath = admin.profile_image; // Keep existing by default
+    
+    if (req.file) {
+      // New file uploaded - convert to relative path
+      profileImagePath = convertToRelativePath(req.file.path);
+    } else if (profile_image_path) {
+      // Using existing relative path
+      profileImagePath = profile_image_path;
+    }
+
+    // Prepare update data
+    const updateData = {
       full_name: full_name || admin.full_name,
+      email: email || admin.email,
       phone: phone || admin.phone,
       position: position || admin.position,
-      profile_image: profile_image || admin.profile_image,
-    });
+      role: role || admin.role,
+      isActive: isActive !== undefined ? isActive : admin.isActive,
+      profile_image: profileImagePath,
+    };
+
+    await admin.update(updateData);
+
+    // Log audit trail
+    await logUpdate(
+      req.user?.id || id,
+      "admin_user",
+      id,
+      oldValues,
+      updateData,
+      req,
+      `Updated admin profile: ${admin.full_name}`
+    );
 
     res.status(200).json({
       success: true,
@@ -231,6 +309,8 @@ const updateProfile = async (req, res) => {
         phone: admin.phone,
         position: admin.position,
         role: admin.role,
+        isActive: admin.isActive,
+        profile_image: admin.profile_image,
       },
     });
   } catch (error) {
@@ -260,6 +340,18 @@ const changePassword = async (req, res) => {
     // Verify current password
     const isPasswordValid = await bcrypt.compare(currentPassword, admin.password);
     if (!isPasswordValid) {
+      // Log failed password change attempt
+      await logAudit({
+        user_id: req.user?.id || id,
+        action: "password_change_failed",
+        resource_type: "admin_user",
+        resource_id: id,
+        description: `Failed password change attempt: incorrect current password`,
+        ip_address: req.headers["x-forwarded-for"]?.split(",")[0] || req.ip,
+        user_agent: req.headers["user-agent"],
+        status: "failed",
+        error_message: "Current password is incorrect",
+      });
       return res.status(401).json({
         success: false,
         message: "Current password is incorrect",
@@ -271,6 +363,18 @@ const changePassword = async (req, res) => {
 
     // Update password
     await admin.update({ password: hashedPassword });
+
+    // Log successful password change
+    await logAudit({
+      user_id: req.user?.id || id,
+      action: "password_change",
+      resource_type: "admin_user",
+      resource_id: id,
+      description: `Password changed successfully for ${admin.full_name}`,
+      ip_address: req.headers["x-forwarded-for"]?.split(",")[0] || req.ip,
+      user_agent: req.headers["user-agent"],
+      status: "success",
+    });
 
     res.status(200).json({
       success: true,
@@ -300,7 +404,19 @@ const updateRole = async (req, res) => {
       });
     }
 
+    const oldRole = admin.role;
     await admin.update({ role });
+
+    // Log audit trail
+    await logUpdate(
+      req.user?.id,
+      "admin_user",
+      id,
+      { role: oldRole },
+      { role },
+      req,
+      `Updated admin role from ${oldRole} to ${role} for ${admin.full_name}`
+    );
 
     res.status(200).json({
       success: true,
@@ -335,7 +451,19 @@ const toggleActiveStatus = async (req, res) => {
       });
     }
 
+    const oldStatus = admin.isActive;
     await admin.update({ isActive: !admin.isActive });
+
+    // Log audit trail
+    await logStatusChange(
+      req.user?.id,
+      "admin_user",
+      id,
+      oldStatus ? "active" : "inactive",
+      admin.isActive ? "active" : "inactive",
+      req,
+      `${admin.isActive ? "Activated" : "Deactivated"} admin: ${admin.full_name}`
+    );
 
     res.status(200).json({
       success: true,
@@ -369,7 +497,24 @@ const deleteAdmin = async (req, res) => {
       });
     }
 
+    // Store admin data for audit log
+    const adminData = {
+      full_name: admin.full_name,
+      email: admin.email,
+      role: admin.role,
+    };
+
     await admin.destroy();
+
+    // Log audit trail
+    await logDelete(
+      req.user?.id,
+      "admin_user",
+      id,
+      adminData,
+      req,
+      `Deleted admin: ${adminData.full_name} (${adminData.email})`
+    );
 
     res.status(200).json({
       success: true,
