@@ -5,6 +5,7 @@ const fs = require("fs");
 
 const { initializeModels, setupAssociations } = require("./models");
 const { errorHandler } = require("./middleware/errorHandler");
+const { initializeChatbot } = require("./controllers/chatbotController");
 
 // Import all routes
 const adminUserRoutes = require("./routes/adminUserRoutes");
@@ -14,6 +15,7 @@ const documentRoutes = require("./routes/documentRoutes");
 const auditTrailRoutes = require("./routes/auditTrailRoutes");
 const reportRoutes = require("./routes/reportRoutes");
 const analyticsRoutes = require("./routes/analyticsRoutes");
+const chatbotRoutes = require("./routes/chatbotRoutes");
 
 const app = express();
 
@@ -83,6 +85,9 @@ console.log("✅ /api/reports route registered");
 app.use("/api/analytics", analyticsRoutes);
 console.log("✅ /api/analytics route registered");
 
+app.use("/api/chatbot", chatbotRoutes);
+console.log("✅ /api/chatbot route registered");
+
 console.log("✅ All API routes registered");
 
 // Health check endpoint
@@ -145,6 +150,10 @@ const initializeApp = async () => {
     // Setup model associations
     setupAssociations();
     console.log("✅ Model associations configured");
+    
+    // Initialize chatbot
+    initializeChatbot();
+    console.log("✅ Chatbot initialized");
     
     console.log("✅ Application initialized successfully");
     return true;
