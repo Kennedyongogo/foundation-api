@@ -1,6 +1,7 @@
 const { Project, Inquiry, Document, AdminUser, AuditTrail, sequelize } = require("../models");
 const { Op } = require("sequelize");
 const { generatePDFReport, generateWordReport } = require("../utils/reportGenerator");
+const { logAudit } = require("../utils/auditLogger");
 
 // Get report data based on date range
 const getReportData = async (req, res) => {
@@ -168,12 +169,43 @@ const getReportData = async (req, res) => {
       };
     }
 
+    // Log audit trail for report data preview
+    try {
+      const userId = req.user?.id || req.user?.user_id;
+      if (userId) {
+        await logAudit({
+          user_id: userId,
+          action: 'export',
+          resource_type: 'system',
+          resource_id: null,
+          description: `Previewed report data for ${startDate} to ${endDate} (${reportType})`,
+          metadata: {
+            reportType: 'DATA_PREVIEW',
+            dateRange: {
+              start: startDate,
+              end: endDate
+            },
+            reportTypeFilter: reportType,
+            dataCounts: {
+              projects: reportData.projects?.length || 0,
+              inquiries: reportData.inquiries?.length || 0,
+              documents: reportData.documents?.length || 0,
+              activities: reportData.activities?.length || 0
+            }
+          },
+          ip_address: req.ip || req.connection.remoteAddress,
+          user_agent: req.get('User-Agent')
+        });
+      }
+    } catch (auditError) {
+      // Don't fail the request if audit logging fails
+    }
+
     res.status(200).json({
       success: true,
       data: reportData,
     });
   } catch (error) {
-    console.error("Error generating report data:", error);
     res.status(500).json({
       success: false,
       message: "Error generating report data",
@@ -205,9 +237,42 @@ const generatePDF = async (req, res) => {
 
     // Collect data
     const reportData = await collectReportData(dateRange, reportType);
+    
+    // Add original dates for display in the report
+    reportData.displayDateRange = {
+      start: new Date(startDate),
+      end: new Date(endDate)
+    };
 
     // Generate PDF
     const pdfBuffer = await generatePDFReport(reportData);
+
+    // Log audit trail for report generation
+    try {
+      const userId = req.user?.id || req.user?.user_id;
+      if (userId) {
+        await logAudit({
+          user_id: userId,
+          action: 'download',
+          resource_type: 'system',
+          resource_id: null,
+          description: `Generated PDF report for ${startDate} to ${endDate} (${reportType})`,
+          metadata: {
+            reportType: 'PDF',
+            dateRange: {
+              start: startDate,
+              end: endDate
+            },
+            reportTypeFilter: reportType,
+            filename: `activity_report_${startDate}_to_${endDate}.pdf`
+          },
+          ip_address: req.ip || req.connection.remoteAddress,
+          user_agent: req.get('User-Agent')
+        });
+      }
+    } catch (auditError) {
+      // Don't fail the request if audit logging fails
+    }
 
     // Set response headers
     res.setHeader("Content-Type", "application/pdf");
@@ -218,7 +283,6 @@ const generatePDF = async (req, res) => {
 
     res.send(pdfBuffer);
   } catch (error) {
-    console.error("Error generating PDF report:", error);
     res.status(500).json({
       success: false,
       message: "Error generating PDF report",
@@ -250,9 +314,43 @@ const generateWord = async (req, res) => {
 
     // Collect data
     const reportData = await collectReportData(dateRange, reportType);
+    
+    // Add original dates for display in the report
+    reportData.displayDateRange = {
+      start: new Date(startDate),
+      end: new Date(endDate)
+    };
+    
 
     // Generate Word document
     const docBuffer = await generateWordReport(reportData);
+
+    // Log audit trail for report generation
+    try {
+      const userId = req.user?.id || req.user?.user_id;
+      if (userId) {
+        await logAudit({
+          user_id: userId,
+          action: 'download',
+          resource_type: 'system',
+          resource_id: null,
+          description: `Generated Word report for ${startDate} to ${endDate} (${reportType})`,
+          metadata: {
+            reportType: 'WORD',
+            dateRange: {
+              start: startDate,
+              end: endDate
+            },
+            reportTypeFilter: reportType,
+            filename: `activity_report_${startDate}_to_${endDate}.docx`
+          },
+          ip_address: req.ip || req.connection.remoteAddress,
+          user_agent: req.get('User-Agent')
+        });
+      }
+    } catch (auditError) {
+      // Don't fail the request if audit logging fails
+    }
 
     // Set response headers
     res.setHeader(
@@ -266,7 +364,6 @@ const generateWord = async (req, res) => {
 
     res.send(docBuffer);
   } catch (error) {
-    console.error("Error generating Word report:", error);
     res.status(500).json({
       success: false,
       message: "Error generating Word report",
@@ -473,7 +570,6 @@ const getSummaryStats = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error generating summary stats:", error);
     res.status(500).json({
       success: false,
       message: "Error generating summary statistics",
