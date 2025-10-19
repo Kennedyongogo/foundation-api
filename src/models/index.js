@@ -6,6 +6,7 @@ const Inquiry = require("./inquiry")(sequelize);
 const Project = require("./project")(sequelize);
 const Document = require("./document")(sequelize);
 const AuditTrail = require("./auditTrail")(sequelize);
+const Testimony = require("./testimony")(sequelize);
 
 const models = {
   AdminUser,
@@ -13,6 +14,7 @@ const models = {
   Project,
   Document,
   AuditTrail,
+  Testimony,
 };
 
 // Initialize models in correct order (parent tables first)
@@ -27,6 +29,7 @@ const initializeModels = async () => {
     await Project.sync({ force: false, alter: false });
     await Document.sync({ force: false, alter: false });
     await AuditTrail.sync({ force: false, alter: false });
+    await Testimony.sync({ force: false, alter: false });
 
     console.log("✅ All models synced successfully");
   } catch (error) {

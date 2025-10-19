@@ -19,6 +19,7 @@ const auditTrailRoutes = require("./routes/auditTrailRoutes");
 const reportRoutes = require("./routes/reportRoutes");
 const analyticsRoutes = require("./routes/analyticsRoutes");
 const chatbotRoutes = require("./routes/chatbotRoutes");
+const testimonyRoutes = require("./routes/testimonyRoutes");
 
 const app = express();
 
@@ -27,14 +28,6 @@ app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 app.use(cors());
 
-// Debug logging middleware
-app.use((req, res, next) => {
-  console.log(`🔍 [${new Date().toISOString()}] ${req.method} ${req.url}`);
-  if (req.body && Object.keys(req.body).length > 0) {
-    console.log(`📦 Body:`, req.body);
-  }
-  next();
-});
 
 // Static file serving
 const profilesUploadPath = path.join(__dirname, "..", "uploads", "profiles");
@@ -66,6 +59,9 @@ app.get("/api/public-projects", getPublicProjects);
 console.log("✅ /api/public-projects route registered (public)");
 app.get("/api/public-projects/:id", getPublicProjectById);
 console.log("✅ /api/public-projects/:id route registered (public)");
+
+app.use("/api/testimonies", testimonyRoutes);
+console.log("✅ /api/testimonies route registered");
 
 app.use("/api/admin-users", adminUserRoutes);
 console.log("✅ /api/admin-users route registered");

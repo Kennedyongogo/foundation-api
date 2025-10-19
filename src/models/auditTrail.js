@@ -43,6 +43,7 @@ module.exports = (sequelize) => {
           "project",
           "inquiry",
           "document",
+          "testimony",
           "system",
           "other"
         ),
