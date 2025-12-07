@@ -11,6 +11,11 @@ const {
 // Create project
 const createProject = async (req, res) => {
   try {
+    // Extract data from both req.body and req.fields (for multer.fields())
+    const bodyData = req.body || {};
+    const fieldsData = req.fields || {};
+    const allData = { ...bodyData, ...fieldsData };
+    
     const {
       name,
       description,
@@ -25,7 +30,7 @@ const createProject = async (req, res) => {
       longitude,
       latitude,
       progress,
-    } = req.body;
+    } = allData;
 
     // created_by will be the authenticated admin user
     const created_by = req.user?.id;
@@ -36,6 +41,15 @@ const createProject = async (req, res) => {
         success: false,
         message: "Please provide all required fields (name, description, category, county)",
       });
+    }
+
+    // Handle image uploads
+    let imageArray = [];
+    if (req.files && req.files.length > 0) {
+      imageArray = req.files.map((file) => ({
+        path: convertToRelativePath(file.path),
+        timestamp: new Date(),
+      }));
     }
 
     // Create project
@@ -55,7 +69,7 @@ const createProject = async (req, res) => {
       longitude,
       latitude,
       progress: progress || 0,
-      update_images: [],
+      update_images: imageArray,
       progress_descriptions: [],
       updated_by: [],
     });

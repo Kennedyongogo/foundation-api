@@ -7,6 +7,8 @@ const Project = require("./project")(sequelize);
 const Document = require("./document")(sequelize);
 const AuditTrail = require("./auditTrail")(sequelize);
 const Testimony = require("./testimony")(sequelize);
+const MissionCategory = require("./missionCategory")(sequelize);
+const Post = require("./post")(sequelize);
 
 const models = {
   AdminUser,
@@ -15,6 +17,8 @@ const models = {
   Document,
   AuditTrail,
   Testimony,
+  MissionCategory,
+  Post,
 };
 
 // Initialize models in correct order (parent tables first)
@@ -30,6 +34,8 @@ const initializeModels = async () => {
     await Document.sync({ force: false, alter: false });
     await AuditTrail.sync({ force: false, alter: false });
     await Testimony.sync({ force: false, alter: false });
+    await MissionCategory.sync({ force: false, alter: false });
+    await Post.sync({ force: false, alter: false });
 
     console.log("✅ All models synced successfully");
   } catch (error) {
@@ -95,6 +101,16 @@ const setupAssociations = () => {
     models.AuditTrail.belongsTo(models.AdminUser, {
       foreignKey: "user_id",
       as: "user",
+    });
+
+    // AdminUser → Post (1:Many)
+    models.AdminUser.hasMany(models.Post, {
+      foreignKey: "created_by",
+      as: "createdPosts",
+    });
+    models.Post.belongsTo(models.AdminUser, {
+      foreignKey: "created_by",
+      as: "creator",
     });
 
     console.log("✅ All associations set up successfully");

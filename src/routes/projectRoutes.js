@@ -27,7 +27,7 @@ router.use(authenticateAdmin);
  * @desc    Create new project
  * @access  Admin
  */
-router.post("/", createProject);
+router.post("/", uploadProjectImages, handleUploadError, createProject);
 
 /**
  * @route   GET /api/projects

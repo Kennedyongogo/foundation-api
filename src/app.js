@@ -20,6 +20,8 @@ const reportRoutes = require("./routes/reportRoutes");
 const analyticsRoutes = require("./routes/analyticsRoutes");
 const chatbotRoutes = require("./routes/chatbotRoutes");
 const testimonyRoutes = require("./routes/testimonyRoutes");
+const missionCategoryRoutes = require("./routes/missionCategoryRoutes");
+const postRoutes = require("./routes/postRoutes");
 
 const app = express();
 
@@ -34,6 +36,8 @@ const profilesUploadPath = path.join(__dirname, "..", "uploads", "profiles");
 const documentsUploadPath = path.join(__dirname, "..", "uploads", "documents");
 const projectsUploadPath = path.join(__dirname, "..", "uploads", "projects");
 const inquiriesUploadPath = path.join(__dirname, "..", "uploads", "inquiries");
+const missionCategoriesUploadPath = path.join(__dirname, "..", "uploads", "mission-categories");
+const postsUploadPath = path.join(__dirname, "..", "uploads", "posts");
 const miscUploadPath = path.join(__dirname, "..", "uploads", "misc");
 
 console.log("📁 Upload Paths:");
@@ -41,6 +45,8 @@ console.log("  - Profiles:", profilesUploadPath, "- Exists:", fs.existsSync(prof
 console.log("  - Documents:", documentsUploadPath, "- Exists:", fs.existsSync(documentsUploadPath));
 console.log("  - Projects:", projectsUploadPath, "- Exists:", fs.existsSync(projectsUploadPath));
 console.log("  - Inquiries:", inquiriesUploadPath, "- Exists:", fs.existsSync(inquiriesUploadPath));
+console.log("  - Mission Categories:", missionCategoriesUploadPath, "- Exists:", fs.existsSync(missionCategoriesUploadPath));
+console.log("  - Posts:", postsUploadPath, "- Exists:", fs.existsSync(postsUploadPath));
 console.log("  - Misc:", miscUploadPath, "- Exists:", fs.existsSync(miscUploadPath));
 
 // Serve static files
@@ -48,6 +54,8 @@ app.use("/uploads/profiles", express.static(profilesUploadPath));
 app.use("/uploads/documents", express.static(documentsUploadPath));
 app.use("/uploads/projects", express.static(projectsUploadPath));
 app.use("/uploads/inquiries", express.static(inquiriesUploadPath));
+app.use("/uploads/mission-categories", express.static(missionCategoriesUploadPath));
+app.use("/uploads/posts", express.static(postsUploadPath));
 app.use("/uploads/misc", express.static(miscUploadPath));
 
 // API routes
@@ -86,6 +94,12 @@ console.log("✅ /api/analytics route registered");
 
 app.use("/api/chatbot", chatbotRoutes);
 console.log("✅ /api/chatbot route registered");
+
+app.use("/api/mission-categories", missionCategoryRoutes);
+console.log("✅ /api/mission-categories route registered");
+
+app.use("/api/posts", postRoutes);
+console.log("✅ /api/posts route registered");
 
 // Forgot password endpoint
 app.post("/api/auth/forgot", async (req, res) => {
@@ -205,6 +219,8 @@ const createUploadDirectories = () => {
     path.join(__dirname, "..", "uploads", "documents"),
     path.join(__dirname, "..", "uploads", "projects"),
     path.join(__dirname, "..", "uploads", "inquiries"),
+    path.join(__dirname, "..", "uploads", "mission-categories"),
+    path.join(__dirname, "..", "uploads", "posts"),
     path.join(__dirname, "..", "uploads", "misc"),
   ];
 

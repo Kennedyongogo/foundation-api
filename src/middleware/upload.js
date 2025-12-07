@@ -24,6 +24,19 @@ const storage = multer.diskStorage({
       uploadPath = path.join(__dirname, "..", "..", "uploads", "documents");
     } else if (file.fieldname === "inquiry_attachment") {
       uploadPath = path.join(__dirname, "..", "..", "uploads", "inquiries");
+    } else if (
+      file.fieldname === "image" ||
+      file.fieldname === "images" ||
+      file.fieldname === "mission_category_image" ||
+      file.fieldname === "mission_category_images"
+    ) {
+      uploadPath = path.join(__dirname, "..", "..", "uploads", "mission-categories");
+    } else if (
+      file.fieldname === "post_image" ||
+      file.fieldname === "post_images" ||
+      file.fieldname === "post_banner"
+    ) {
+      uploadPath = path.join(__dirname, "..", "..", "uploads", "posts");
     } else {
       uploadPath = path.join(__dirname, "..", "..", "uploads", "misc");
     }
@@ -115,6 +128,24 @@ const uploadProjectImages = upload.any();
 // Middleware for inquiry attachments
 const uploadInquiryAttachment = upload.single("inquiry_attachment");
 
+// Middleware for mission category image (single)
+const uploadMissionCategoryImage = upload.single("image");
+
+// Middleware for mission category images (multiple)
+const uploadMissionCategoryImages = upload.array("images", 10);
+
+// Middleware for post images (multiple, for news)
+const uploadPostImages = upload.array("post_images", 10);
+
+// Middleware for post banner (single, for events)
+const uploadPostBanner = upload.single("post_banner");
+
+// Middleware for posts (flexible - handles both images and banner)
+const uploadPostFiles = upload.fields([
+  { name: "post_images", maxCount: 10 },
+  { name: "post_banner", maxCount: 1 },
+]);
+
 // Middleware for mixed uploads (multiple fields)
 const uploadMixed = upload.fields([
   { name: "profile_image", maxCount: 1 },
@@ -204,6 +235,11 @@ module.exports = {
   uploadProjectImage,
   uploadProjectImages,
   uploadInquiryAttachment,
+  uploadMissionCategoryImage,
+  uploadMissionCategoryImages,
+  uploadPostImages,
+  uploadPostBanner,
+  uploadPostFiles,
   uploadMixed,
   handleUploadError,
   deleteFile,
