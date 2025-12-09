@@ -40,13 +40,34 @@ const createMissionCategory = async (req, res) => {
       }];
     }
 
+    // Handle impacts - convert to array if needed (backward compatibility)
+    let impactsArray = [];
+    if (impact) {
+      if (Array.isArray(impact)) {
+        impactsArray = impact.filter(imp => imp && imp.trim()); // Filter out empty strings
+      } else if (typeof impact === 'string') {
+        // Try to parse as JSON first (for FormData JSON strings)
+        try {
+          const parsed = JSON.parse(impact);
+          if (Array.isArray(parsed)) {
+            impactsArray = parsed.filter(imp => imp && imp.trim());
+          } else {
+            impactsArray = [impact]; // Fallback to single string
+          }
+        } catch (e) {
+          // Not JSON, treat as single string (backward compatibility)
+          impactsArray = [impact];
+        }
+      }
+    }
+
     // Create mission category
     const missionCategory = await MissionCategory.create({
       title,
       description,
       category: category || "educational_support",
       images: imagesArray,
-      impact,
+      impact: impactsArray,
     });
 
     // Log audit trail
@@ -275,12 +296,35 @@ const updateMissionCategory = async (req, res) => {
       imagesArray = [...imagesArray, newImage];
     }
 
+    // Handle impacts - convert to array if needed (backward compatibility)
+    let impactsArray = undefined;
+    if (impact !== undefined) {
+      if (Array.isArray(impact)) {
+        impactsArray = impact.filter(imp => imp && imp.trim()); // Filter out empty strings
+      } else if (typeof impact === 'string') {
+        // Try to parse as JSON first (for FormData JSON strings)
+        try {
+          const parsed = JSON.parse(impact);
+          if (Array.isArray(parsed)) {
+            impactsArray = parsed.filter(imp => imp && imp.trim());
+          } else {
+            impactsArray = [impact]; // Fallback to single string
+          }
+        } catch (e) {
+          // Not JSON, treat as single string (backward compatibility)
+          impactsArray = [impact];
+        }
+      } else {
+        impactsArray = [];
+      }
+    }
+
     // Update fields
     const updateData = {};
     if (title !== undefined) updateData.title = title;
     if (description !== undefined) updateData.description = description;
     if (category !== undefined) updateData.category = category;
-    if (impact !== undefined) updateData.impact = impact;
+    if (impactsArray !== undefined) updateData.impact = impactsArray;
     if (imagesArray.length > 0 || req.body.existing_images !== undefined) {
       updateData.images = imagesArray;
     }

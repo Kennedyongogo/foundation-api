@@ -30,9 +30,10 @@ module.exports = (sequelize) => {
         comment: "Mission category type",
       },
       impact: {
-        type: DataTypes.STRING,
+        type: DataTypes.JSON,
         allowNull: true,
-        comment: "Impact label (e.g., High Impact)",
+        defaultValue: [],
+        comment: "Array of impact statements (e.g., ['Impact 1', 'Impact 2'])",
       },
     },
     {
