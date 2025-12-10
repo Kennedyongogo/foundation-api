@@ -22,6 +22,7 @@ const chatbotRoutes = require("./routes/chatbotRoutes");
 const testimonyRoutes = require("./routes/testimonyRoutes");
 const missionCategoryRoutes = require("./routes/missionCategoryRoutes");
 const postRoutes = require("./routes/postRoutes");
+const memberRoutes = require("./routes/memberRoutes");
 
 const app = express();
 
@@ -100,6 +101,9 @@ console.log("✅ /api/mission-categories route registered");
 
 app.use("/api/posts", postRoutes);
 console.log("✅ /api/posts route registered");
+
+app.use("/api/members", memberRoutes);
+console.log("✅ /api/members route registered");
 
 // Forgot password endpoint
 app.post("/api/auth/forgot", async (req, res) => {

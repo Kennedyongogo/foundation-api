@@ -8,6 +8,7 @@ const {
   updateTestimonyStatus,
   deleteTestimony,
   getApprovedTestimonies,
+  getApprovedTestimonyById,
 } = require("../controllers/testimonyController");
 const { 
   authenticateAdmin,
@@ -28,6 +29,13 @@ router.post("/", createTestimony);
  * @access  Public
  */
 router.get("/approved", getApprovedTestimonies);
+
+/**
+ * @route   GET /api/testimonies/public/:id
+ * @desc    Get single approved testimony by ID (public)
+ * @access  Public
+ */
+router.get("/public/:id", getApprovedTestimonyById);
 
 // All routes below require admin authentication
 router.use(authenticateAdmin);

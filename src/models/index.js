@@ -9,6 +9,7 @@ const AuditTrail = require("./auditTrail")(sequelize);
 const Testimony = require("./testimony")(sequelize);
 const MissionCategory = require("./missionCategory")(sequelize);
 const Post = require("./post")(sequelize);
+const Member = require("./member")(sequelize);
 
 const models = {
   AdminUser,
@@ -19,6 +20,7 @@ const models = {
   Testimony,
   MissionCategory,
   Post,
+  Member,
 };
 
 // Initialize models in correct order (parent tables first)
@@ -36,6 +38,7 @@ const initializeModels = async () => {
     await Testimony.sync({ force: false, alter: false });
     await MissionCategory.sync({ force: false, alter: false });
     await Post.sync({ force: false, alter: false });
+    await Member.sync({ force: false, alter: false });
 
     console.log("✅ All models synced successfully");
   } catch (error) {

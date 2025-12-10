@@ -374,6 +374,39 @@ const getApprovedTestimonies = async (req, res) => {
   }
 };
 
+// Get single approved testimony by ID (public)
+const getApprovedTestimonyById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const testimony = await Testimony.findOne({
+      where: {
+        id: id,
+        status: "approved",
+      },
+    });
+
+    if (!testimony) {
+      return res.status(404).json({
+        success: false,
+        message: "Testimony not found or not approved",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: testimony,
+    });
+  } catch (error) {
+    console.error("Error fetching testimony:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching testimony",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   createTestimony,
   getAllTestimonies,
@@ -382,4 +415,5 @@ module.exports = {
   updateTestimonyStatus,
   deleteTestimony,
   getApprovedTestimonies,
+  getApprovedTestimonyById,
 };
