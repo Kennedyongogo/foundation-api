@@ -37,10 +37,6 @@ module.exports = (sequelize) => {
         type: DataTypes.STRING,
         allowNull: true,
       },
-      passport_number: {
-        type: DataTypes.STRING,
-        allowNull: true,
-      },
       physical_address: {
         type: DataTypes.TEXT,
         allowNull: true,

@@ -45,7 +45,6 @@ const createMember = async (req, res) => {
       date_of_birth,
       gender,
       national_id,
-      passport_number,
       physical_address,
       emergency_contact_name,
       emergency_contact_phone,
@@ -85,7 +84,6 @@ const createMember = async (req, res) => {
       date_of_birth: date_of_birth || null,
       gender: gender || null,
       national_id: national_id || null,
-      passport_number: passport_number || null,
       physical_address: physical_address || null,
       emergency_contact_name: emergency_contact_name || null,
       emergency_contact_phone: emergency_contact_phone || null,
@@ -225,7 +223,6 @@ const updateMember = async (req, res) => {
       date_of_birth,
       gender,
       national_id,
-      passport_number,
       physical_address,
       emergency_contact_name,
       emergency_contact_phone,
@@ -264,7 +261,6 @@ const updateMember = async (req, res) => {
     if (date_of_birth !== undefined) updateData.date_of_birth = date_of_birth;
     if (gender) updateData.gender = gender;
     if (national_id !== undefined) updateData.national_id = national_id;
-    if (passport_number !== undefined) updateData.passport_number = passport_number;
     if (physical_address !== undefined) updateData.physical_address = physical_address;
     if (emergency_contact_name !== undefined) updateData.emergency_contact_name = emergency_contact_name;
     if (emergency_contact_phone !== undefined) updateData.emergency_contact_phone = emergency_contact_phone;
